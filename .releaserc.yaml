@@ -27,6 +27,8 @@ plugins:
           { "path": "build/rakuyomi-kindlea9.zip", "label": "Kindle (Cortex-A9 optimized) build" },
           { "path": "build/rakuyomi-android.zip", "label": "Android build" },
           { "path": "build/rakuyomi-macos.zip", "label": "macOS build" },
+          { "path": "build/RakuyomiBridge.apk", "label": "Rakuyomi Bridge ${env.BRIDGE_VERSION} APK (Android 5.0+)" },
+          { "path": "build/RakuyomiBridgeHeadless.apk", "label": "Rakuyomi Bridge Headless ${env.BRIDGE_VERSION} APK (Android 4.3+)" },
           { "path": "build/settings.schema.json", "label": "Settings JSON schema" },
         ],
         "successComment": false,

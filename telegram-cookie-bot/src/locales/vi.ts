@@ -131,8 +131,8 @@ const vi: Locale = {
     "/donate — Ủng hộ",
 
   github: "<b>Rakuyomi là mã nguồn mở!</b>\n\n" +
-    "GitHub: https://github.com/tachibana-shin/rakuyomi\n" +
-    "Báo lỗi & góp ý: https://github.com/tachibana-shin/rakuyomi/issues",
+    "GitHub: https://github.com/yuuki-kagura/rakuyomi\n" +
+    "Báo lỗi & góp ý: https://github.com/yuuki-kagura/rakuyomi/issues",
 
   donate: "Nếu bạn thấy dự án hữu ích, hãy cân nhắc ủng hộ:\n\n" +
     "<b>Ko-fi:</b> https://ko-fi.com/tachib_shin\n" +

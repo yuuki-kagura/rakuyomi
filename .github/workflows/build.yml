@@ -225,6 +225,24 @@ jobs:
         if compgen -G "build/rakuyomi-android-*.zip" > /dev/null; then
           cp "$(ls build/rakuyomi-android-*.zip | head -1)" build/rakuyomi-android.zip
         fi
+    - name: Download Rakuyomi Bridge APKs
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        BRIDGE_REPO: yuuki-kagura/rakuyomi_bridge
+      run: |
+        # Attach the Android companion app to the release, so the plugin and
+        # the app can be downloaded from the same page. The APKs are taken
+        # from the latest Rakuyomi Bridge release instead of being rebuilt
+        # here: the signing keystore lives in that repository, and an APK
+        # signed with another key cannot update an existing install.
+        bridge_tag="$(gh release view --repo "$BRIDGE_REPO" --json tagName --jq .tagName)"
+        gh release download "$bridge_tag" --repo "$BRIDGE_REPO" --dir build/bridge \
+          --pattern 'androidApp-*-signed.apk' \
+          --pattern 'androidHeadless-*-signed.apk'
+        mv build/bridge/androidApp-*-signed.apk build/RakuyomiBridge.apk
+        mv build/bridge/androidHeadless-*-signed.apk build/RakuyomiBridgeHeadless.apk
+        # Shown in the asset labels, see .releaserc.yaml.
+        echo "BRIDGE_VERSION=$bridge_tag" >> "$GITHUB_ENV"
     - name: Release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

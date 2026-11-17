@@ -10,7 +10,7 @@ The `settings.json` file contains basic settings that rakuyomi needs to work, in
 
 A recommended starter configuration is created automatically on the first plugin start, so writing this file by hand is optional. The defaults are equivalent to the snippet below — use it as a reference if you want to customise the file before that first run.
 
-Any source that can run on [Aidoku](https://github.com/Aidoku) can also run on [rakuyomi](https://github.com/tachibana-shin/rakuyomi) (except `WebView`)
+Any source that can run on [Aidoku](https://github.com/Aidoku) can also run on [rakuyomi](https://github.com/yuuki-kagura/rakuyomi) (except `WebView`)
 
 ```json,downloadable:settings.json
 {{#include ../../../../backend/server/assets/default-settings.json}}
@@ -47,7 +47,7 @@ Steps 6 and 7 are only needed if you customised the snippet above. Otherwise, sk
 Android (BOOX, Onyx, etc.) requires an extra step — an active **companion app** is needed to run the rakuyomi server, because Android does not allow KOReader to launch arbitrary binaries directly.
 
 1. Follow the normal steps above to copy `rakuyomi.koplugin` into KOReader's `plugins` folder.
-2. Sideload `RakuyomiBridge.apk` from the [releases page](https://github.com/tachibana-shin/rakuyomi/releases/latest). You can do this via:
+2. Sideload `RakuyomiBridge.apk` from the [releases page](https://github.com/yuuki-kagura/rakuyomi/releases/latest). You can do this via:
    - **ADB**: `adb install RakuyomiBridge.apk`
    - A file manager app on the device
 3. Open the **Rakuyomi Bridge** app.
