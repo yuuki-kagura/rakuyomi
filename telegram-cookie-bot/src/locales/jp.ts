@@ -125,8 +125,8 @@ const jp: Locale = {
     "/donate — 開発支援",
 
   github: "Rakuyomiはオープンソースです！\n\n" +
-    "GitHub: https://github.com/tachibana-shin/rakuyomi\n" +
-    "Issues: https://github.com/tachibana-shin/rakuyomi/issues",
+    "GitHub: https://github.com/yuuki-kagura/rakuyomi\n" +
+    "Issues: https://github.com/yuuki-kagura/rakuyomi/issues",
 
   donate: "このプロジェクトが役に立ったなら、開発者を支援してください:\n\n" +
     "Ko-fi: https://ko-fi.com/tachib_shin\n" +
