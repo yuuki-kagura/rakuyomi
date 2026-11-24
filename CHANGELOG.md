@@ -1,3 +1,10 @@
+## [1.43.9](https://github.com/yuuki-kagura/rakuyomi/compare/v1.43.8...v1.43.9) (2026-11-24)
+
+
+### Bug Fixes
+
+* **update:** point updater and project links at yuuki-kagura/rakuyomi ([#3](https://github.com/yuuki-kagura/rakuyomi/issues/3)) ([8443f38](https://github.com/yuuki-kagura/rakuyomi/commit/8443f3841d1024f12c0d6011fd3d8906c6edd44c))
+
 ## [1.43.8](https://github.com/yuuki-kagura/rakuyomi/compare/v1.43.7...v1.43.8) (2026-11-22)
 
 
