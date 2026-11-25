@@ -30,6 +30,59 @@ use crate::{
     },
 };
 
+fn is_html_page(bytes: &[u8], html_content_type: bool) -> bool {
+    looks_like_html(bytes) || (html_content_type && detect_image_extension(bytes).is_none())
+}
+
+fn looks_like_html(bytes: &[u8]) -> bool {
+    let mut rest = bytes;
+    if let Some(stripped) = rest.strip_prefix(b"\xef\xbb\xbf") {
+        rest = stripped;
+    }
+
+    loop {
+        rest = rest.trim_ascii_start();
+        let Some(comment) = rest.strip_prefix(b"<!--") else {
+            break;
+        };
+        let Some(end) = comment.windows(3).position(|window| window == b"-->") else {
+            return true;
+        };
+        rest = &comment[end + 3..];
+    }
+
+    if rest.first() != Some(&b'<') {
+        return false;
+    }
+
+    const SCAN_LEN: usize = 512;
+    const MARKERS: [&[u8]; 6] = [
+        b"<!doctype html",
+        b"<html",
+        b"<head",
+        b"<body",
+        b"<meta",
+        b"<script",
+    ];
+
+    let window = &rest[..rest.len().min(SCAN_LEN)];
+    MARKERS
+        .iter()
+        .any(|marker| contains_tag_marker(window, marker))
+}
+
+fn contains_tag_marker(window: &[u8], marker: &[u8]) -> bool {
+    window
+        .windows(marker.len())
+        .enumerate()
+        .any(|(index, part)| {
+            part.eq_ignore_ascii_case(marker)
+                && window.get(index + marker.len()).is_none_or(|next| {
+                    matches!(next, b'>' | b'/' | b' ' | b'\t' | b'\r' | b'\n' | b'\x0c')
+                })
+        })
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct DownloadError {
     pub page_index: usize,
@@ -61,7 +114,6 @@ pub async fn ensure_chapter_is_in_storage(
         return Ok((output.0, output.1.unwrap_or_default()));
     }
 
-    // FIXME like downloaderror is a really bad name??
     let pages = source
         .get_page_list(
             token.clone(),
@@ -81,9 +133,6 @@ pub async fn ensure_chapter_is_in_storage(
     }
     let is_novel = pages.first().and_then(|p| p.text.as_ref()).is_some();
 
-    // FIXME this logic should be contained entirely within the storage..? maybe we could return something that's writable
-    // and then commit it into the storage (or maybe a implicit commit on drop, but i dont think it works well as there
-    // could be errors while committing it)
     let output_path: PathBuf =
         chapter_storage.get_path_to_store_chapter(&chapter.id, is_novel, use_ram);
 
@@ -94,14 +143,11 @@ pub async fn ensure_chapter_is_in_storage(
         chapter_title_format,
     );
 
-    // Write chapter pages to a temporary file, so that if things go wrong
-    // we do not have a borked .cbz file in the chapter storage.
     let parent = output_path
         .parent()
         .ok_or_else(|| Error::Other(anyhow::anyhow!("Output path has no parent")))?;
     let temporary_file = NamedTempFile::new_in(parent).map_err(|e| Error::Other(e.into()))?;
 
-    // in mode write to RAM before download to free memory
     if use_ram {
         if let Some(current_chapter_id) = current_chapter_id {
             let _ = chapter_storage
@@ -110,7 +156,6 @@ pub async fn ensure_chapter_is_in_storage(
         }
     }
     let errors = if is_novel {
-        // is novel
         let temp_path = temporary_file.path().to_path_buf();
 
         download_chapter_novel_as_epub(
@@ -149,8 +194,6 @@ pub async fn ensure_chapter_is_in_storage(
         .map_err(Error::DownloadError)?
     };
 
-    // If we succeeded downloading all the chapter pages, persist our temporary
-    // file into the chapter storage definitively.
     chapter_storage
         .persist_chapter(&chapter.id, is_novel, temporary_file, &errors, use_ram)
         .await
@@ -204,7 +247,6 @@ where
     let file_options: zip::write::FileOptions<'_, ()> =
         zip::write::FileOptions::default().compression_method(CompressionMethod::Stored);
 
-    // Add ComicInfo.xml to the CBZ file
     writer.start_file("ComicInfo.xml", file_options)?;
     writer.write_all(metadata.to_xml()?.as_bytes())?;
 
@@ -225,8 +267,6 @@ where
         let cancel_token = cancel_token.clone();
 
         async move {
-            // Zero-pad page indices to the width of the page count, so
-            // lexicographic filename ordering matches page order.
             let page_index_width = pages.len().to_string().len().max(2);
 
             stream::iter(pages)
@@ -249,20 +289,14 @@ where
                                 .unwrap_or("jpg")
                                 .to_owned();
 
-                            // Fallback filename (URL-derived extension): the
-                            // success arm may override it with the real
-                            // extension sniffed from the image magic bytes.
                             let filename =
                                 format!("{:0>page_index_width$}.{}", page.index, extension);
 
-                            // TODO we could stream the data from the client into the file
-                            // would save a bit of memory but i dont think its a big deal
+                            let mut html_content_type = false;
                             let response_bytes = if matches!(
                                 &source.backend,
                                 crate::source::SourceBackend::Keiyoushi(_)
                             ) {
-                                // keiyoushi images may be IMGX-encrypted: fetch through the
-                                // extension's own client so its interceptor decrypts them.
                                 let bytes = source
                                     .fetch_page_image(&chapter_id_str, image_url.as_str())
                                     .await
@@ -271,11 +305,6 @@ where
                                         anyhow::anyhow!(err)
                                     })?;
 
-                                // The extension's client swallows HTTP statuses
-                                // (only its interceptor sees them), so a failed
-                                // request or decrypt can still come back as
-                                // bytes; render the same error image as the
-                                // plain GET path when they are not an image.
                                 if detect_image_extension(&bytes).is_none() {
                                     let head = String::from_utf8_lossy(
                                         &bytes[..bytes.len().min(16)],
@@ -347,6 +376,12 @@ where
 
                                 let status = response.status();
                                 let headers = response.headers().clone();
+                                html_content_type = headers
+                                    .get(reqwest::header::CONTENT_TYPE)
+                                    .and_then(|value| value.to_str().ok())
+                                    .is_some_and(|value| {
+                                        value.to_ascii_lowercase().contains("text/html")
+                                    });
 
                                 let response_bytes = response.bytes().await?;
 
@@ -439,20 +474,31 @@ where
                                 final_bytes
                             };
 
+                            if is_html_page(&final_bytes, html_content_type) {
+                                let reason = "image server returned HTML instead of an image".to_string();
+                                let err = DownloadError {
+                                    page_index: page.index,
+                                    url: page_url.as_ref().map(ToString::to_string).unwrap_or_default(),
+                                    reason: reason.clone(),
+                                    attempts: 1,
+                                };
+                                return Ok((
+                                    page.index,
+                                    format!("{:0>page_index_width$}.jpg", page.index),
+                                    generate_error_image("Error", &reason, 500, 667)?,
+                                    Some(err),
+                                ));
+                            }
+
                             Ok::<_, anyhow::Error>((page.index, filename, final_bytes, error_info))
                         }
                         .await
                         {
                             Ok((index, filename, final_bytes, error_info)) => {
-                                // Keiyoushi image URLs may end in a disguised
-                                // extension (e.g. .js for IMGX-encrypted WebP):
-                                // trust the magic bytes of the decrypted image
-                                // over the extension derived from the URL.
                                 let filename = match detect_image_extension(&final_bytes) {
                                     Some(ext) => format!("{:0>page_index_width$}.{}", index, ext),
                                     None => filename,
                                 };
-                                // Send result
                                 let _ = tx
                                     .send((index, filename, final_bytes, error_info))
                                     .await;
@@ -489,10 +535,8 @@ where
         }
     });
 
-    // Collect errors
     let mut errors = Vec::<DownloadError>::new();
 
-    // Writer task
     while let Some((_index, filename, data, err)) = rx.recv().await {
         if let Some(e) = err {
             errors.push(e);
@@ -596,7 +640,6 @@ where
         epub.set_title(book_name);
 
         let mut index_image = 0;
-        // epub.inline_toc().set_toc_name("Map");
 
         if let Some(cursor) = cover_img {
             epub.add_cover_image("cover.jpg", Cursor::new(cursor), "image/jpeg")?;
@@ -650,7 +693,6 @@ where
                     into_html(text).to_owned()
                 ));
 
-                // Apply results sequentially
                 for img in document.select("img").iter() {
                     let Some(src) =
                         get_image_src(chapter_url.as_ref(), |n| img.attr(n).map(|v| v.to_string()))
