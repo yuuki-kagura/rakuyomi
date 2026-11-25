@@ -287,7 +287,7 @@ end
 
 ---@return boolean
 function Backend.running()
-  return Backend.server ~= nil and Backend.server:isAlive()
+  return Backend.server ~= nil and (Backend.server.is_alive == nil or Backend.server:is_alive())
 end
 
 --- @class SourceInformation

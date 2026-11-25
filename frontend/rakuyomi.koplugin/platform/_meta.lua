@@ -29,6 +29,15 @@ end
 function Server:getLogBuffer()
 end
 
+--- Whether the server process is still running. Optional: servers that cannot
+--- observe their process (e.g. Android) do not implement it.
+--- @return boolean
+function Server:is_alive()
+end
+
 --- Stops the server.
+--- @return boolean|nil success False when the child could not be reaped; nil when
+---   the platform has no shutdown acknowledgement (Android reports best-effort
+---   `true`, since its stop link is asynchronous).
 function Server:stop()
 end
